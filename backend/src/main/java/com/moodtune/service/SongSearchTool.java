@@ -64,7 +64,7 @@ public class SongSearchTool implements Function<SongSearchTool.SearchRequest, Li
             wrapper.last("LIMIT 20");
 
             List<Song> results = songMapper.selectList(wrapper);
-            log.info("searchLikedSongs - title={}, artist={}, genre={}, keyword={}, found  songs",
+            log.info("searchLikedSongs - title={}, artist={}, genre={}, keyword={}, found {} songs",
                      request.title, request.artist, request.genre, request.keyword, results.size());
             return results;
 
