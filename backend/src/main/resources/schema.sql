@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS songs (
     genre VARCHAR(100),                                          -- 音乐风格/流派（如：流行、摇滚、民谣等）
     file_url VARCHAR(500),                                       -- 歌曲文件URL（MinIO存储地址）
     liked BOOLEAN NOT NULL DEFAULT FALSE,                        -- 是否喜欢该歌曲（收藏标记）
+    mood_tags TEXT[],                                            -- 情绪标签（如：治愈、伤感、激昂）
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP      -- 创建时间
 );
 
@@ -56,6 +57,7 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 -- 索引（用于加速查询性能）
 CREATE INDEX IF NOT EXISTS idx_songs_liked ON songs(liked);                                       -- 加速查询喜欢的歌曲
 CREATE INDEX IF NOT EXISTS idx_songs_genre ON songs(genre);                                       -- 加速按音乐风格查询
+CREATE INDEX IF NOT EXISTS idx_songs_mood_tags ON songs USING GIN(mood_tags);                     -- 加速情绪标签查询
 CREATE INDEX IF NOT EXISTS idx_song_group_relations_song_id ON song_group_relations(song_id);    -- 加速查询歌曲所属的分组
 CREATE INDEX IF NOT EXISTS idx_song_group_relations_group_id ON song_group_relations(group_id);  -- 加速查询分组中的歌曲列表
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages(session_id);            -- 加速查询会话的消息历史
