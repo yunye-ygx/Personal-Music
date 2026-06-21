@@ -3,10 +3,11 @@ package com.moodtune.service;
 import com.moodtune.dto.*;
 import com.moodtune.entity.ChatSession;
 import com.moodtune.entity.ChatMessage;
-import com.moodtune.repository.ChatSessionRepository;
-import com.moodtune.repository.ChatMessageRepository;
+import com.moodtune.mapper.ChatSessionMapper;
+import com.moodtune.mapper.ChatMessageMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -14,25 +15,28 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ChatService {
 
-    private final ChatSessionRepository sessionRepository;
-    private final ChatMessageRepository messageRepository;
+    private final ChatSessionMapper sessionMapper;
+    private final ChatMessageMapper messageMapper;
     private final SongService songService;
 
     public ChatSessionDTO createSession(String title) {
-        ChatSession session = new ChatSession();
-        session.setTitle(title);
-        ChatSession saved = sessionRepository.save(session);
-        return toSessionDTO(saved);
+        ChatSession session = ChatSession.builder()
+                .title(title)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        sessionMapper.insert(session);
+        return toSessionDTO(session);
     }
 
     public List<ChatSessionDTO> getAllSessions() {
-        return sessionRepository.findAllByOrderByUpdatedAtDesc().stream()
+        return sessionMapper.findAllByOrderByUpdatedAtDesc().stream()
                 .map(this::toSessionDTO)
                 .collect(Collectors.toList());
     }
 
     public List<ChatMessageDTO> getSessionMessages(Long sessionId) {
-        return messageRepository.findBySessionIdOrderByCreatedAtAsc(sessionId).stream()
+        return messageMapper.findBySessionIdOrderByCreatedAtAsc(sessionId).stream()
                 .map(this::toMessageDTO)
                 .collect(Collectors.toList());
     }

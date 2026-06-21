@@ -1,34 +1,36 @@
 package com.moodtune.entity;
 
-import jakarta.persistence.*;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import java.time.LocalDateTime;
 
 @Data
-@Entity
-@Table(name = "chat_messages")
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@TableName("chat_messages")
 public class ChatMessage {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @TableId(type = IdType.AUTO)
     private Long id;
 
-    @Column(name = "session_id", nullable = false)
+    @TableField("session_id")
     private Long sessionId;
 
-    @Column(name = "sender_type", nullable = false)
-    private String senderType; // "user" or "ai"
+    @TableField("sender_type")
+    private String senderType;
 
-    @Column(name = "text_content", columnDefinition = "TEXT")
+    @TableField("text_content")
     private String textContent;
 
-    @Column(name = "song_id")
-    private Long songId; // nullable, only for AI messages with recommendation
+    @TableField("song_id")
+    private Long songId;
 
-    @Column(name = "created_at")
+    @TableField("created_at")
     private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
 }

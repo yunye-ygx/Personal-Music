@@ -1,36 +1,36 @@
 package com.moodtune.entity;
 
-import jakarta.persistence.*;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import java.time.LocalDateTime;
 
 @Data
-@Entity
-@Table(name = "songs")
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@TableName("songs")
 public class Song {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @TableId(type = IdType.AUTO)
     private Long id;
 
-    @Column(nullable = false)
     private String title;
 
-    @Column(nullable = false)
     private String artist;
 
     private String genre;
 
-    @Column(name = "file_url")
+    @TableField("file_url")
     private String fileUrl;
 
-    @Column(nullable = false)
+    @Builder.Default
     private Boolean liked = false;
 
-    @Column(name = "created_at")
+    @TableField("created_at")
     private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
 }

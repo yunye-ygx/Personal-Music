@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moodtune.dto.*;
 import com.moodtune.entity.ChatMessage;
-import com.moodtune.repository.ChatMessageRepository;
+import com.moodtune.mapper.ChatMessageMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,7 +24,7 @@ public class RecommendationService {
 
     private final LlmClient llmClient;
     private final SongService songService;
-    private final ChatMessageRepository messageRepository;
+    private final ChatMessageMapper messageMapper;
     private final ObjectMapper objectMapper;
 
     private static final String SYSTEM_PROMPT = """
@@ -51,11 +51,13 @@ public class RecommendationService {
      */
     public RecommendationResult recommend(Long sessionId, String userMessage, SseEmitter emitter) throws IOException {
         // 1. Save user message
-        ChatMessage userChatMsg = new ChatMessage();
-        userChatMsg.setSessionId(sessionId);
-        userChatMsg.setSenderType("user");
-        userChatMsg.setTextContent(userMessage);
-        messageRepository.save(userChatMsg);
+        ChatMessage userChatMsg = ChatMessage.builder()
+                .sessionId(sessionId)
+                .senderType("user")
+                .textContent(userMessage)
+                .createdAt(LocalDateTime.now())
+                .build();
+        messageMapper.insert(userChatMsg);
 
         // 2. Build song list for system prompt
         String songList = buildSongList();
@@ -66,7 +68,7 @@ public class RecommendationService {
         List<LlmMessage> messages = new ArrayList<>();
         messages.add(new LlmMessage("system", systemPrompt));
 
-        List<ChatMessage> history = messageRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
+        List<ChatMessage> history = messageMapper.findBySessionIdOrderByCreatedAtAsc(sessionId);
         for (ChatMessage msg : history) {
             String role = "user".equals(msg.getSenderType()) ? "user" : "assistant";
             messages.add(new LlmMessage(role, msg.getTextContent()));
@@ -79,12 +81,14 @@ public class RecommendationService {
         RecommendationResult result = parseResponse(fullResponse);
 
         // 6. Save AI message
-        ChatMessage aiChatMsg = new ChatMessage();
-        aiChatMsg.setSessionId(sessionId);
-        aiChatMsg.setSenderType("ai");
-        aiChatMsg.setTextContent(result.getText());
-        aiChatMsg.setSongId(result.getSongId());
-        messageRepository.save(aiChatMsg);
+        ChatMessage aiChatMsg = ChatMessage.builder()
+                .sessionId(sessionId)
+                .senderType("ai")
+                .textContent(result.getText())
+                .songId(result.getSongId())
+                .createdAt(LocalDateTime.now())
+                .build();
+        messageMapper.insert(aiChatMsg);
 
         return result;
     }

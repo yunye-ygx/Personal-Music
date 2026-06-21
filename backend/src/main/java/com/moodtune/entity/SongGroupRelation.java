@@ -1,19 +1,26 @@
 package com.moodtune.entity;
 
-import jakarta.persistence.*;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 
 @Data
-@Entity
-@Table(name = "song_group_relations")
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@TableName("song_group_relations")
 public class SongGroupRelation {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @TableId(type = IdType.AUTO)
     private Long id;
 
-    @Column(name = "song_id", nullable = false)
+    @TableField("song_id")
     private Long songId;
 
-    @Column(name = "group_id", nullable = false)
+    @TableField("group_id")
     private Long groupId;
 }

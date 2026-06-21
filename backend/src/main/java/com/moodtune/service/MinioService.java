@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import java.io.InputStream;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -62,6 +63,29 @@ public class MinioService {
         } catch (Exception e) {
             log.error("Failed to get presigned URL", e);
             throw new RuntimeException("Failed to get presigned URL", e);
+        }
+    }
+
+    /**
+     * 从InputStream上传文件（用于爬虫下载）
+     */
+    public String uploadStream(InputStream stream, String fileName) {
+        try {
+            ensureBucket();
+            String objectName = UUID.randomUUID() + "_" + fileName;
+
+            // 上传流到MinIO（不知道文件大小，使用-1）
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(minioConfig.getBucketName())
+                    .object(objectName)
+                    .stream(stream, -1, 10485760)  // -1表示未知大小，10MB part size
+                    .contentType("audio/mpeg")
+                    .build());
+
+            return getPresignedUrl(objectName);
+        } catch (Exception e) {
+            log.error("Failed to upload stream to MinIO", e);
+            throw new RuntimeException("Stream upload failed", e);
         }
     }
 }

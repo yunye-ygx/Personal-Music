@@ -48,12 +48,19 @@ public class SongController {
             @RequestParam("title") String title,
             @RequestParam("artist") String artist,
             @RequestParam(value = "genre", required = false) String genre) {
-        String fileUrl = minioService.uploadFile(file, file.getOriginalFilename());
-        SongDTO dto = new SongDTO();
-        dto.setTitle(title);
-        dto.setArtist(artist);
-        dto.setGenre(genre);
-        dto.setFileUrl(fileUrl);
-        return ResponseEntity.ok(songService.addSong(dto));
+
+        // 验证文件
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("文件不能为空");
+        }
+
+        // 验证文件类型（可选，但推荐）
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("audio/")) {
+            throw new IllegalArgumentException("只支持音频文件");
+        }
+
+        // 一步完成：上传文件 + 保存到数据库
+        return ResponseEntity.ok(songService.uploadSong(file, title, artist, genre));
     }
 }
