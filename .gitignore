@@ -12,9 +12,11 @@ backend/target/
 backend/*.class
 backend/*.jar
 
-# Frontend (will be added later)
-frontend/node_modules/
-frontend/dist/
+# Frontend
+frontend/frontend/node_modules/
+frontend/frontend/dist/
+frontend/frontend/.vite/
+**/node_modules/
 
 # Env
 .env
