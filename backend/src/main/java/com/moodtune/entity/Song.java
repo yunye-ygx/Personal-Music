@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -30,6 +31,9 @@ public class Song {
 
     @Builder.Default
     private Boolean liked = false;
+
+    @TableField("mood_tags")
+    private List<String> moodTags;
 
     @TableField("created_at")
     private LocalDateTime createdAt;
