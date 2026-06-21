@@ -15,7 +15,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -29,21 +28,46 @@ public class RecommendationService {
 
     private static final String SYSTEM_PROMPT = """
             你是一个私人音乐顾问，是用户的知心朋友。
-            你的任务是根据用户当下的状态和心情，从他们的歌单中推荐一首最合适的歌。
+            你的任务是根据用户当下的状态和心情，从他们的红心歌单中推荐歌曲。
 
-            你的歌单如下：
-            %s
+            ## 工具使用指南
+
+            使用 searchLikedSongs 工具查询用户的红心歌曲：
+            - 根据用户的描述提取关键信息（歌名、歌手、风格、情绪）
+            - 调用工具时，提供尽可能明确的参数
+            - 从查询结果中选择最合适的一首歌
+
+            ## 推荐策略
+
+            1. **理解真实需求**：用户说"伤心"时，可能想要共鸣的歌，也可能想要振奋的歌。根据上下文判断。
+            2. **情绪匹配优先**：优先考虑歌曲的情绪基调（通过moodTags和歌词主题）
+            3. **避免重复推荐**：如果用户说"换一首"，避免推荐聊天历史中已推荐的歌
+            4. **空结果处理**：如果工具返回空列表，告诉用户"你的红心歌单里暂时没有这类歌曲"
+            5. **引导明确需求**：如果用户需求模糊，可以问"你是想找首歌陪你难过，还是想听点振奋的？"
+
+            ## 特殊场景
+
+            - 用户说"给我推荐首歌"且没有更多上下文：调用 searchLikedSongs() 不传任何参数，从所有红心歌曲中随机选一首
+            - 红心歌单为空（工具返回空列表且用户是第一次询问）：提示"你还没有收藏任何歌曲哦，先去添加几首红心歌曲吧～"
+            - 工具调用失败（抛出异常）：告知用户"抱歉，查询歌曲时出了点问题，请稍后再试"
 
             当前时间：%s
 
-            规则：
-            1. 根据对话内容理解用户的心情和需求
-            2. 从歌单中选择最匹配的歌曲
-            3. 推荐理由要自然，像朋友推荐一样
-            4. 如果用户说"换一首"，推荐不同的歌曲
-            5. 你的回复必须是JSON格式：{"text": "你的回复文字", "song_id": 歌曲ID}
-            6. song_id 必须是歌单中某首歌的ID，如果是纯对话不需要推荐歌曲则为 null
-            7. text 中包含推荐理由，自然地融入心情和场景描述
+            ## 返回格式（严格JSON）
+
+            {
+              "text": "你的回复和推荐理由（自然、像朋友一样）",
+              "song": {
+                "id": 123,
+                "title": "歌名",
+                "artist": "歌手",
+                "genre": "风格",
+                "fileUrl": "播放地址",
+                "moodTags": ["标签1", "标签2"]
+              }
+            }
+
+            如果是纯对话不推荐歌曲，song字段设为null。
             """;
 
     /**
@@ -59,10 +83,9 @@ public class RecommendationService {
                 .build();
         messageMapper.insert(userChatMsg);
 
-        // 2. Build song list for system prompt
-        String songList = buildSongList();
+        // 2. Build system prompt (without song list)
         String currentTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm EEEE"));
-        String systemPrompt = String.format(SYSTEM_PROMPT, songList, currentTime);
+        String systemPrompt = String.format(SYSTEM_PROMPT, currentTime);
 
         // 3. Build message history
         List<LlmMessage> messages = new ArrayList<>();
@@ -74,7 +97,7 @@ public class RecommendationService {
             messages.add(new LlmMessage(role, msg.getTextContent()));
         }
 
-        // 4. Call LLM with streaming
+        // 4. Call LLM with streaming (Function Calling automatic)
         String fullResponse = llmClient.chatStream(messages, emitter);
 
         // 5. Parse structured response
@@ -85,7 +108,7 @@ public class RecommendationService {
                 .sessionId(sessionId)
                 .senderType("ai")
                 .textContent(result.getText())
-                .songId(result.getSongId())
+                .songId(result.getSong() != null ? result.getSong().getId() : null)
                 .createdAt(LocalDateTime.now())
                 .build();
         messageMapper.insert(aiChatMsg);
@@ -93,14 +116,6 @@ public class RecommendationService {
         return result;
     }
 
-    private String buildSongList() {
-        return songService.getAllSongs().stream()
-                .map(s -> String.format("ID:%d | %s - %s | 风格:%s | 喜欢:%s",
-                        s.getId(), s.getTitle(), s.getArtist(),
-                        s.getGenre() != null ? s.getGenre() : "未知",
-                        s.getLiked() ? "是" : "否"))
-                .collect(Collectors.joining("\n"));
-    }
 
     private RecommendationResult parseResponse(String response) {
         RecommendationResult result = new RecommendationResult();
@@ -118,13 +133,36 @@ public class RecommendationService {
 
             JsonNode node = objectMapper.readTree(jsonStr);
             result.setText(node.path("text").asText(response));
-            result.setSongId(node.has("song_id") && !node.get("song_id").isNull()
-                    ? node.get("song_id").asLong() : null);
+
+            // Parse song object (not just song_id)
+            if (node.has("song") && !node.get("song").isNull()) {
+                JsonNode songNode = node.get("song");
+                SongDTO song = SongDTO.builder()
+                        .id(songNode.path("id").asLong())
+                        .title(songNode.path("title").asText())
+                        .artist(songNode.path("artist").asText())
+                        .genre(songNode.path("genre").asText())
+                        .fileUrl(songNode.path("fileUrl").asText())
+                        .moodTags(parseMoodTags(songNode.path("moodTags")))
+                        .build();
+                result.setSong(song);
+            } else {
+                result.setSong(null);
+            }
         } catch (Exception e) {
             log.warn("Failed to parse LLM response as JSON, using raw text: {}", e.getMessage());
             result.setText(response);
-            result.setSongId(null);
+            result.setSong(null);
         }
         return result;
+    }
+
+    private List<String> parseMoodTags(JsonNode moodTagsNode) {
+        if (moodTagsNode.isArray()) {
+            List<String> tags = new ArrayList<>();
+            moodTagsNode.forEach(tag -> tags.add(tag.asText()));
+            return tags;
+        }
+        return null;
     }
 }
