@@ -12,7 +12,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -35,12 +37,13 @@ public class LlmClient {
         StringBuilder fullResponse = new StringBuilder();
 
         try {
-            // 使用Spring AI的流式API
+            // 使用Spring AI的流式API，设置30秒首次响应超时
             Flux<String> contentStream = chatClientBuilder.build()
                     .prompt()
                     .messages(springAiMessages)
                     .stream()
-                    .content();
+                    .content()
+                    .timeout(Duration.ofSeconds(30));  // 30秒首次响应超时
 
             // 订阅流式响应
             contentStream
@@ -51,12 +54,28 @@ public class LlmClient {
                                     .name("message")
                                     .data(chunk));
                         } catch (IOException e) {
-                            log.error("Failed to send SSE chunk", e);
+                            log.error("发送SSE chunk失败", e);
                         }
                     })
+                    .doOnError(TimeoutException.class, e -> {
+                        log.error("LLM响应超时", e);
+                        try {
+                            emitter.send(SseEmitter.event()
+                                    .name("error")
+                                    .data("AI响应超时，请稍后重试"));
+                            emitter.complete();
+                        } catch (IOException ignored) {}
+                    })
                     .doOnError(e -> {
-                        log.error("Stream error", e);
-                        emitter.completeWithError(e);
+                        if (!(e instanceof TimeoutException)) {
+                            log.error("LLM调用失败", e);
+                            try {
+                                emitter.send(SseEmitter.event()
+                                        .name("error")
+                                        .data("AI服务暂时不可用，请稍后重试"));
+                                emitter.complete();
+                            } catch (IOException ignored) {}
+                        }
                     })
                     .blockLast(); // 阻塞等待流完成
 
