@@ -17,14 +17,13 @@ spring:
   # Spring AI - 通义千问配置（使用OpenAI兼容格式）
   ai:
     openai:
-      api-key: ${DASHSCOPE_API_KEY:sk-your-api-key-here}  # 通义千问的API Key
-      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1  # 通义千问OpenAI兼容端点
+      api-key: sk-4bc19b4f8af04134b52a70f8d26027da
+      base-url: https://dashscope.aliyuncs.com/compatible-mode
       chat:
         options:
-          model: qwen-plus                                   # 模型: qwen-turbo(快/便宜) qwen-plus(推荐) qwen-max(最强) qwen-max-longcontext(长文本)
-          temperature: 0.7                                   # 创造性 0-1，越高越随机
-          top-p: 0.8                                         # 多样性控制
-          max-tokens: 2000                                   # 最大输出token数
+          model: qwen-plus
+          temperature: 0.7
+          max-tokens: 50
 
 # MyBatis-Plus Configuration
 mybatis-plus:
