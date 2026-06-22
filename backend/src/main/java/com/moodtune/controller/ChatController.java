@@ -36,6 +36,12 @@ public class ChatController {
         return ResponseEntity.ok(chatService.getSessionMessages(sessionId));
     }
 
+    @DeleteMapping("/sessions/{sessionId}")
+    public ResponseEntity<Void> deleteSession(@PathVariable Long sessionId) {
+        chatService.deleteSession(sessionId);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping(value = "/sessions/{sessionId}/messages", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter sendMessage(@PathVariable Long sessionId, @RequestBody Map<String, String> body) {
         String message = body.get("message");
@@ -45,6 +51,36 @@ public class ChatController {
         new Thread(() -> {
             try {
                 RecommendationResult result = recommendationService.recommend(sessionId, message, emitter);
+
+                // Send final event with structured data
+                emitter.send(SseEmitter.event()
+                        .name("recommendation")
+                        .data(result));
+
+                emitter.complete();
+            } catch (IOException e) {
+                emitter.completeWithError(e);
+            }
+        }).start();
+
+        return emitter;
+    }
+
+    /**
+     * 简化的AI推荐接口 - 无需session，直接推荐
+     * 改用POST避免URL中文编码问题
+     */
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamRecommendation(@RequestBody Map<String, String> body) {
+        String message = body.get("message");
+        SseEmitter emitter = new SseEmitter(60000L); // 60s timeout
+
+        // Run in async thread to not block
+        new Thread(() -> {
+            try {
+                // 创建临时session用于此次推荐
+                ChatSessionDTO session = chatService.createSession("AI推荐-" + System.currentTimeMillis());
+                RecommendationResult result = recommendationService.recommend(session.getId(), message, emitter);
 
                 // Send final event with structured data
                 emitter.send(SseEmitter.event()

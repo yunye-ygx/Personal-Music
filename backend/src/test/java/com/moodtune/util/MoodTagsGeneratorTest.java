@@ -1,31 +1,32 @@
 package com.moodtune.util;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moodtune.entity.Song;
 import com.moodtune.mapper.SongMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 临时工具：为所有歌曲自动生成mood_tags
- * 使用后可以删除此类
+ * 为所有歌曲生成mood_tags的工具测试
+ * 运行方式：右键点击这个测试类 -> Run 'MoodTagsGeneratorTest'
  */
 @Slf4j
-@Component
-@RequiredArgsConstructor
-public class MoodTagsGenerator implements CommandLineRunner {
+@SpringBootTest
+public class MoodTagsGeneratorTest {
 
-    private final SongMapper songMapper;
-    private final ChatClient.Builder chatClientBuilder;
-    private final ObjectMapper objectMapper;
+    @Autowired
+    private SongMapper songMapper;
+
+    @Autowired
+    @Qualifier("customChatClientBuilder")
+    private ChatClient.Builder chatClientBuilder;
 
     private static final String MOOD_TAGS_PROMPT = """
             你是一个音乐情绪分析专家。根据歌曲名称和歌手，生成3个最符合这首歌情绪特征的标签。
@@ -47,16 +48,11 @@ public class MoodTagsGenerator implements CommandLineRunner {
             示例格式：治愈,温暖,怀旧
             """;
 
-    @Override
-    public void run(String... args) throws Exception {
-        // 检查是否需要运行（通过环境变量或启动参数控制）
-        String enableGenerator = System.getProperty("moodtune.generate-tags", "false");
-        if (!"true".equalsIgnoreCase(enableGenerator)) {
-            log.info("MoodTagsGenerator未启用。如需生成标签，请添加启动参数：-Dmoodtune.generate-tags=true");
-            return;
-        }
-
+    @Test
+    public void generateMoodTagsForAllSongs() throws Exception {
+        log.info("========================================");
         log.info("开始为所有歌曲生成mood_tags...");
+        log.info("========================================");
 
         // 查询所有mood_tags为空的歌曲
         QueryWrapper<Song> wrapper = new QueryWrapper<>();
@@ -68,7 +64,7 @@ public class MoodTagsGenerator implements CommandLineRunner {
             return;
         }
 
-        log.info("找到{}首歌曲需要生成mood_tags", songs.size());
+        log.info("找到{}首歌曲需要生成mood_tags\n", songs.size());
 
         int successCount = 0;
         int failCount = 0;
@@ -76,7 +72,8 @@ public class MoodTagsGenerator implements CommandLineRunner {
         for (int i = 0; i < songs.size(); i++) {
             Song song = songs.get(i);
             try {
-                log.info("处理 [{}/{}]: {} - {}", i + 1, songs.size(), song.getTitle(), song.getArtist());
+                log.info("[{}/{}] 处理: {} - {}",
+                         i + 1, songs.size(), song.getTitle(), song.getArtist());
 
                 // 调用LLM生成标签
                 String prompt = String.format(MOOD_TAGS_PROMPT, song.getTitle(), song.getArtist());
@@ -90,7 +87,7 @@ public class MoodTagsGenerator implements CommandLineRunner {
                 List<String> moodTags = parseMoodTags(response.trim());
 
                 if (moodTags.isEmpty()) {
-                    log.warn("  ⚠️ LLM返回为空，使用默认标签");
+                    log.warn("  ⚠️  LLM返回为空，使用默认标签");
                     moodTags = List.of("未分类");
                 }
 
@@ -98,16 +95,14 @@ public class MoodTagsGenerator implements CommandLineRunner {
                 song.setMoodTags(moodTags);
                 songMapper.updateById(song);
 
-                log.info("  ✅ 生成标签: {}", moodTags);
+                log.info("  ✅ 生成标签: {}\n", moodTags);
                 successCount++;
 
-                // 避免频繁调用API，添加短暂延迟
-                if (i < songs.size() - 1) {
-                    Thread.sleep(500);
-                }
+                // 避免频繁调用API
+                Thread.sleep(500);
 
             } catch (Exception e) {
-                log.error("  ❌ 处理失败: {}", e.getMessage());
+                log.error("  ❌ 处理失败: {}\n", e.getMessage());
                 failCount++;
             }
         }
@@ -117,7 +112,6 @@ public class MoodTagsGenerator implements CommandLineRunner {
         log.info("成功: {} 首", successCount);
         log.info("失败: {} 首", failCount);
         log.info("========================================");
-        log.info("提示：可以删除 MoodTagsGenerator.java 文件了");
     }
 
     /**

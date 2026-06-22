@@ -31,8 +31,28 @@ public class ChatService {
 
     public List<ChatSessionDTO> getAllSessions() {
         return sessionMapper.findAllByOrderByUpdatedAtDesc().stream()
-                .map(this::toSessionDTO)
+                .map(session -> {
+                    ChatSessionDTO dto = toSessionDTO(session);
+                    // 获取最后一条消息作为预览
+                    List<ChatMessage> messages = messageMapper.findBySessionIdOrderByCreatedAtAsc(session.getId());
+                    if (!messages.isEmpty()) {
+                        ChatMessage lastMsg = messages.get(messages.size() - 1);
+                        String preview = lastMsg.getTextContent();
+                        if (preview != null && preview.length() > 30) {
+                            preview = preview.substring(0, 30) + "...";
+                        }
+                        dto.setLastMessage(preview);
+                    }
+                    return dto;
+                })
                 .collect(Collectors.toList());
+    }
+
+    public void deleteSession(Long sessionId) {
+        // 删除会话的所有消息
+        messageMapper.deleteBySessionId(sessionId);
+        // 删除会话
+        sessionMapper.deleteById(sessionId);
     }
 
     public List<ChatMessageDTO> getSessionMessages(Long sessionId) {

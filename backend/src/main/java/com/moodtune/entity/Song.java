@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.moodtune.config.StringListTypeHandler;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -32,7 +33,7 @@ public class Song {
     @Builder.Default
     private Boolean liked = false;
 
-    @TableField("mood_tags")
+    @TableField(value = "mood_tags", typeHandler = StringListTypeHandler.class)
     private List<String> moodTags;
 
     @TableField("created_at")
