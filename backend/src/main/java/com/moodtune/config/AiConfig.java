@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 public class AiConfig {
 
     @Bean
-    public ChatClient.Builder chatClientBuilder(ChatModel chatModel, SongSearchTool songSearchTool) {
+    public ChatClient.Builder customChatClientBuilder(ChatModel chatModel, SongSearchTool songSearchTool) {
         return ChatClient.builder(chatModel)
                 .defaultFunction("searchLikedSongs",
                                 "查询用户红心歌单中的歌曲",

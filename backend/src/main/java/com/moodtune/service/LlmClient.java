@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class LlmClient {
 
-    private final ChatClient.Builder chatClientBuilder;
+    private final ChatClient.Builder customChatClientBuilder;
 
     /**
      * 流式调用 - 实时推送每个生成的token到SseEmitter
@@ -38,7 +38,7 @@ public class LlmClient {
 
         try {
             // 使用Spring AI的流式API，设置30秒首次响应超时
-            Flux<String> contentStream = chatClientBuilder.build()
+            Flux<String> contentStream = customChatClientBuilder.build()
                     .prompt()
                     .messages(springAiMessages)
                     .stream()
@@ -95,7 +95,7 @@ public class LlmClient {
                 .collect(Collectors.toList());
 
         try {
-            return chatClientBuilder.build()
+            return customChatClientBuilder.build()
                     .prompt()
                     .messages(springAiMessages)
                     .call()
