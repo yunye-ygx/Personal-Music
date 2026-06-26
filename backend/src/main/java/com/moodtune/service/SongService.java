@@ -4,6 +4,7 @@ import com.moodtune.dto.SongDTO;
 import com.moodtune.entity.Song;
 import com.moodtune.mapper.SongMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -11,6 +12,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SongService {
@@ -18,6 +20,7 @@ public class SongService {
     private final SongMapper songMapper;
     private final MinioService minioService;
     private final MusicGenreService musicGenreService;
+    private final SongSyncService songSyncService;
 
     public List<SongDTO> getAllSongs() {
         return songMapper.selectList(null).stream()
@@ -39,6 +42,23 @@ public class SongService {
         return toDTO(song);
     }
 
+    public Song getSongEntityById(Long id) {
+        return songMapper.selectById(id);
+    }
+
+    public Song findByTitleAndArtist(String title, String artist) {
+        log.info("Finding song - title: '{}', artist: '{}'", title, artist);
+        var wrapper = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Song>();
+        wrapper.eq("title", title);
+        if (artist != null && !artist.isBlank()) {
+            wrapper.eq("artist", artist);
+        }
+        wrapper.last("LIMIT 1");
+        Song result = songMapper.selectOne(wrapper);
+        log.info("Query result: {}", result != null ? "FOUND (id=" + result.getId() + ")" : "NOT FOUND");
+        return result;
+    }
+
     @Transactional
     public SongDTO addSong(SongDTO dto) {
         Song song = Song.builder()
@@ -50,6 +70,7 @@ public class SongService {
                 .createdAt(LocalDateTime.now())
                 .build();
         songMapper.insert(song);
+        songSyncService.syncSong(song);
         return toDTO(song);
     }
 
@@ -61,6 +82,7 @@ public class SongService {
         }
         song.setLiked(!song.getLiked());
         songMapper.updateById(song);
+        songSyncService.syncSong(song);
         return toDTO(song);
     }
 
@@ -92,6 +114,7 @@ public class SongService {
                     .createdAt(LocalDateTime.now())
                     .build();
             songMapper.insert(song);
+            songSyncService.syncSong(song);
 
             // 4. 返回DTO
             return toDTO(song);

@@ -5,6 +5,7 @@ import AIRecommendView from '@/views/AIRecommendView.vue'
 import RadioView from '@/views/RadioView.vue'
 import MyMusicView from '@/views/MyMusicView.vue'
 import ImportView from '@/views/ImportView.vue'
+import SearchView from '@/views/SearchView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -42,6 +43,11 @@ const router = createRouter({
       path: '/import',
       name: 'import',
       component: ImportView
+    },
+    {
+      path: '/search',
+      name: 'search',
+      component: SearchView
     }
   ]
 })

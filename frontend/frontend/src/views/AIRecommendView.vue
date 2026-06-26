@@ -68,10 +68,13 @@
             :key="index"
             :class="['message', message.role]"
           >
+            <!-- 用户消息 -->
             <div v-if="message.role === 'user'" class="message-bubble user-bubble">
               <div class="message-text">{{ message.content }}</div>
+              <div class="user-avatar">👤</div>
             </div>
 
+            <!-- AI 消息 -->
             <div v-else class="message-bubble ai-bubble">
               <div class="ai-avatar">🤖</div>
               <div class="ai-message-content">
@@ -102,7 +105,7 @@
           </div>
 
           <!-- 加载指示器 -->
-          <div v-if="loading" class="message ai">
+          <div v-if="loading" class="message assistant">
             <div class="message-bubble ai-bubble">
               <div class="ai-avatar">🤖</div>
               <div class="ai-message-content">
@@ -318,7 +321,8 @@ const handleSubmit = async () => {
         messages.pop()
       },
       (data) => {
-        // 接收完整推荐结果
+        // 接收完整推荐结果（替换流式累加的内容）
+        aiMessage.content = data.text || aiMessage.content
         if (data.song) {
           aiMessage.song = data.song
         }
@@ -607,19 +611,42 @@ const formatTime = (isoString) => {
 
 .message {
   margin-bottom: 20px;
+  display: flex;
+}
+
+.message.user {
+  justify-content: flex-end;
+}
+
+.message.assistant {
+  justify-content: flex-start;
 }
 
 .message-bubble {
-  display: inline-block;
   max-width: 70%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
 }
 
+/* 用户消息 — 右对齐，头像在右侧 */
 .user-bubble {
-  float: right;
-  clear: both;
+  flex-direction: row-reverse;
   background: linear-gradient(135deg, #a8ff78 0%, #78ffd6 100%);
   border-radius: 18px 18px 4px 18px;
   padding: 12px 16px;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
 }
 
 .user-bubble .message-text {
@@ -628,12 +655,10 @@ const formatTime = (isoString) => {
   line-height: 1.5;
 }
 
+/* AI 消息 — 左对齐，头像在左侧 */
 .ai-bubble {
-  float: left;
-  clear: both;
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
+  background: transparent;
+  padding: 0;
 }
 
 .ai-avatar {

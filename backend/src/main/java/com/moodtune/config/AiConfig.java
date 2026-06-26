@@ -22,7 +22,6 @@ public class AiConfig {
     @Primary
     public ChatClient.Builder customChatClientBuilder(ChatModel chatModel,
                                                       SearchLikedSongsCallback searchLikedSongsCallback) {
-        return ChatClient.builder(chatModel)
-                .defaultToolCallbacks(searchLikedSongsCallback);
+        return ChatClient.builder(chatModel);
     }
 }

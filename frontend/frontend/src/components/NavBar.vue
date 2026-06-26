@@ -20,14 +20,32 @@
 
     <!-- 搜索框 -->
     <div class="search-box">
-      <input type="text" placeholder="搜索歌曲、艺术家..." />
-      <span class="search-icon">🔍</span>
+      <input
+        type="text"
+        placeholder="搜索歌曲、艺术家..."
+        v-model="searchKeyword"
+        @keyup.enter="handleSearch"
+      />
+      <span class="search-icon" @click="handleSearch">🔍</span>
     </div>
   </nav>
 </template>
 
 <script setup>
-import { RouterLink } from 'vue-router'
+import { ref } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
+
+const router = useRouter()
+const searchKeyword = ref('')
+
+const handleSearch = () => {
+  if (searchKeyword.value.trim()) {
+    router.push({
+      name: 'search',
+      query: { q: searchKeyword.value.trim() }
+    })
+  }
+}
 </script>
 
 <style scoped>
@@ -134,5 +152,11 @@ import { RouterLink } from 'vue-router'
   transform: translateY(-50%);
   font-size: 18px;
   color: #666666;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.search-icon:hover {
+  color: #78ffd6;
 }
 </style>

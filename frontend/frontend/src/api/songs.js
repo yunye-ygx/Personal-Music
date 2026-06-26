@@ -19,6 +19,15 @@ export const getLikedSongs = async () => {
   return response.json()
 }
 
+// 搜索歌曲
+export const searchSongs = async (keyword) => {
+  const response = await fetch(`${API_BASE_URL}/api/search?keyword=${encodeURIComponent(keyword)}`)
+  if (!response.ok) {
+    throw new Error('搜索失败')
+  }
+  return response.json()
+}
+
 // 切换喜欢状态
 export const toggleLike = async (id) => {
   const response = await fetch(`${API_BASE_URL}/api/songs/${id}/like`, {
@@ -69,6 +78,7 @@ export const getAIRecommendation = async (userMessage, onMessage, onError, onCom
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
+    let eventType = ''  // 追踪当前 SSE 事件类型
 
     while (true) {
       const { done, value } = await reader.read()
@@ -82,27 +92,32 @@ export const getAIRecommendation = async (userMessage, onMessage, onError, onCom
 
       for (const line of lines) {
         if (line.startsWith('event:')) {
-          const eventType = line.substring(6).trim()
+          eventType = line.substring(6).trim()
           continue
         }
 
         if (line.startsWith('data:')) {
           const data = line.substring(5).trim()
-
           if (data === '') continue
 
-          // 尝试解析为recommendation事件
-          try {
-            const parsed = JSON.parse(data)
-            if (parsed.text !== undefined && parsed.song !== undefined) {
-              // 这是recommendation事件
-              onComplete(parsed)
-              return
+          if (eventType === 'recommendation') {
+            // 只有 recommendation 事件才是最终结构化结果
+            try {
+              onComplete(JSON.parse(data))
+            } catch (e) {
+              console.error('Failed to parse recommendation:', e)
             }
-          } catch (e) {
-            // 不是JSON，是普通的message事件
-            onMessage(data)
+            return
           }
+
+          if (eventType === 'error') {
+            onError(data)
+            return
+          }
+
+          // message 事件：流式文本片段
+          onMessage(data)
+          eventType = ''  // 重置
         }
       }
     }
@@ -175,6 +190,7 @@ export const sendMessage = async (sessionId, userMessage, onMessage, onError, on
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
+    let eventType = ''
 
     while (true) {
       const { done, value } = await reader.read()
@@ -188,6 +204,7 @@ export const sendMessage = async (sessionId, userMessage, onMessage, onError, on
 
       for (const line of lines) {
         if (line.startsWith('event:')) {
+          eventType = line.substring(6).trim()
           continue
         }
 
@@ -195,18 +212,23 @@ export const sendMessage = async (sessionId, userMessage, onMessage, onError, on
           const data = line.substring(5).trim()
           if (data === '') continue
 
-          // 尝试解析为recommendation事件
-          try {
-            const parsed = JSON.parse(data)
-            if (parsed.text !== undefined && parsed.song !== undefined) {
-              // 这是recommendation事件
-              onComplete(parsed)
-              return
+          if (eventType === 'recommendation') {
+            try {
+              onComplete(JSON.parse(data))
+            } catch (e) {
+              console.error('Failed to parse recommendation:', e)
             }
-          } catch (e) {
-            // 不是JSON，是普通的message事件
-            onMessage(data)
+            return
           }
+
+          if (eventType === 'error') {
+            onError(data)
+            return
+          }
+
+          // message 事件：流式文本片段
+          onMessage(data)
+          eventType = ''
         }
       }
     }
